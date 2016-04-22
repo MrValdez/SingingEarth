@@ -15,6 +15,6 @@ def coord():
     obj = json.loads(data.decode("utf-8"))
 
     latitude, longitude = (obj['iss_position']['latitude'],
-                           obj['iss_position']['latitude'])
+                           obj['iss_position']['longitude'])
 
     return latitude, longitude
