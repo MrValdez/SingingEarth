@@ -1,0 +1,5 @@
+SPOTIFY_USERNAME      = 'your-spotify-username'
+SPOTIFY_CLIENT_ID     = 'your-client-id'
+SPOTIFY_CLIENT_SECRET = 'your-client-secret'
+SPOTIFY_REDIRECT_URI  = ''
+SPOTIFY_SCOPE         = 'playlist-modify-public'
