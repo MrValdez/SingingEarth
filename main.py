@@ -1,36 +1,17 @@
-import os
+import ISS
+import country
 import song
-import youtube_dl
+import youtube
 
-country = 'us'
-print("Looking for songs in the country of {}".format(country))
-song = song.grab(country)
+print("Looking for the ISS")
+coord = ISS.coord()
 
-# http://willdrevo.com/downloading-youtube-and-soundcloud-audio-with-python-and-pandas/
-tempfile = 'tmp_song.%(ext)s'
+print("Finding country from coordinates {}, {}".format(*coord))
+country_name, country_code = country.info(coord)
 
-options = {'nocheckcertificate': True,
-           'quiet': True,
-           'nowarnings': True,
-           # 'simulate': True,
-           'extractaudio': True,
-           # 'format': 'bestaudio/best',
-           'format': 'bestaudio',
-           'audioformat': 'mp3',
-           'outtmpl': tempfile,
-           }
+print("Looking for songs in {} ({})".format(country_name, country_code))
+song = song.grab(country_code)
 
-filedir = "songs/"
-if not os.path.isdir(filedir):
-    os.mkdir(filedir)
-
-print("Downloading song")
-with youtube_dl.YoutubeDL(options) as ydl:
-    result = ydl.extract_info(song.url, download=False)
-    filename = "{}.{}".format(song.name, result['ext'])
-
-    if not os.path.isfile(filedir + filename):
-        result = ydl.extract_info(song.url, download=True)
-        os.rename(tempfile % (result), filedir + filename)
+filename = youtube.get_file(song)
 
 print("Playing \"{}\" by {}".format(song.name, song.artist))
