@@ -2,3 +2,4 @@ geopy==1.11.0
 billboard.py==2.0.1
 youtube-dl>=2016.04.19
 Flask==0.10.1
+wikipedia==1.4.0
