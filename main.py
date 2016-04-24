@@ -1,17 +1,42 @@
-import ISS
-import country
-import song
-import youtube
+from flask import (Flask, 
+                   render_template,
+                   Response,
+                   stream_with_context)
+from camera import Camera
 
-print("Looking for the ISS")
-coord = ISS.coord()
+app = Flask(__name__)
 
-print("Finding country from coordinates {}, {}".format(*coord))
-country_name, country_code = country.info(coord)
+def gen(camera):
+    while True:
+        frame = camera.get_frame()
+        yield(b'--frame\r\n'
+              b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-print("Looking for songs in {} ({})".format(country_name, country_code))
-song = song.grab(country_code)
+@app.route('/video')
+def video_feed():
+    return Response(stream_with_context(gen(Camera())),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
-filename = youtube.get_file(song)
+@app.route('/music')
+def music():
+    audio_extension = "webm"
 
-print("Playing \"{}\" by {}".format(song.name, song.artist))
+    def play():
+        with open("songs/Work.webm", "rb") as song:
+            data = song.read(1024)
+            while data:
+                yield data
+                data = song.read(1024)
+
+    return Response(stream_with_context(play()),
+                    mimetype='audio/' + audio_extension)
+
+@app.route('/')
+def index():
+    return render_template('camera.html')
+
+#@app.route('/get_isis')
+#def 
+
+if __name__ == '__main__':
+    app.run(port=80, debug=True)
