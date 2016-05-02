@@ -1,0 +1,306 @@
+<!doctype html>
+<html>
+<head>
+  <!-- Make the application on mobile take up the full browser screen and disable user scaling. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+
+<script src="Build/Cesium/Cesium.js"></script>
+
+<style>
+@import url(Build/Cesium/Widgets/widgets.css);
+
+html, body, #cesiumContainer {
+  width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+}
+</style>
+</head>
+
+<body>
+  <iframe id="music" style="visible:false;" width="0" scrolling="no" height="0" frameborder="0" src="about:blank" seamless="seamless"></iframe>
+
+  <div id="cesiumContainer"></div>
+  <div id="loadingOverlay"><h1>Loading...</h1></div>  
+  <div id="toolbar">
+  <div>
+  </div>
+  </div>
+
+<script type="text/javascript">
+    function getPageContents(callback,url,params) {
+    http=new XMLHttpRequest();
+    if(params!=null) {
+        http.open("POST", url, true);
+        http.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    } else {
+        http.open("GET", url, true);
+    }
+    http.onreadystatechange = function() {
+        if(http.readyState == 4 && http.status == 200) {
+            callback(http.responseText);
+        }
+    }
+    http.send(params);
+}
+</script>
+
+<script>
+    longitude = -105.0;
+    latitude = 40.0;
+
+    var iss;
+getPageContents(function(result) {
+    iss = result.split(",");
+    longitude = iss[0];
+    latitude = iss[1];
+    //Now I can do anything here with the personinfo array
+},'http://localhost/get_iss','')
+    //iss = loadXMLDoc('http://localhost/get_iss').responseText;
+</script>
+
+<script>
+    var viewer = new Cesium.Viewer('cesiumContainer', {
+        selectionIndicator : false,
+        infoBox : true,
+        fullscreenButton: false,
+        vrButton: true,
+        geocoder: false,
+        homeButton: false,
+        navigationInstructionsInitiallyVisible: false,
+        timeline: false,
+        terrainExaggeration: 10.0
+        });
+        
+    var z = viewer.camera.position.z
+    viewer.camera.flyTo({
+        destination :Cesium.Cartesian3.fromDegrees(longitude + 20, latitude - 20, z)
+        });
+    
+    var scene = viewer.scene;
+    var canvas = viewer.canvas;
+canvas.setAttribute('tabindex', '0'); // needed to put focus on the canvas
+canvas.onclick = function() {
+    canvas.focus();
+};
+var ellipsoid = scene.globe.ellipsoid;
+
+var handler = new Cesium.ScreenSpaceEventHandler(canvas);
+    
+    function MouseOver() {
+        var entity = viewer.entities.add({
+            label : {
+                show : false
+            }
+        });
+
+        // Mouse over the globe to see the cartographic position
+        var handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
+        handler.setInputAction(function(movement) {
+            var cartesian = viewer.camera.pickEllipsoid(movement.endPosition, scene.globe.ellipsoid);
+            if (cartesian) {
+                var cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+                var longitudeString = Cesium.Math.toDegrees(cartographic.longitude).toFixed(2);
+                var latitudeString = Cesium.Math.toDegrees(cartographic.latitude).toFixed(2);
+
+                entity.position = cartesian;
+                entity.label.show = true;
+                entity.label.text = '(' + longitudeString + ', ' + latitudeString + ')';
+                entity.label.pixelOffset = new Cesium.Cartesian2(-10, -15)
+                entity.label.scale = 0.8;
+            } else {
+                entity.label.show = false;
+            }
+        }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+    }
+
+    function MouseClick() {
+        var handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
+        handler.setInputAction(function(movement) {
+            var cartesian = viewer.camera.pickEllipsoid(movement.position, scene.globe.ellipsoid);
+            if (cartesian) {
+                var cartographic = Cesium.Cartographic.fromCartesian(cartesian);
+                var longitudeString = Cesium.Math.toDegrees(cartographic.longitude).toFixed(2);
+                var latitudeString = Cesium.Math.toDegrees(cartographic.latitude).toFixed(2);
+            }
+            longitude = longitudeString;
+            latitude = latitudeString;
+            
+            reset();
+        }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+    }
+
+var startMousePosition;
+var mousePosition;
+var flags = {
+    looking : false,
+    moveForward : false,
+    moveBackward : false,
+    moveUp : false,
+    moveDown : false,
+    moveLeft : false,
+    moveRight : false
+};
+
+handler.setInputAction(function(movement) {
+    flags.looking = true;
+    mousePosition = startMousePosition = Cesium.Cartesian3.clone(movement.position);
+}, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+
+handler.setInputAction(function(movement) {
+    mousePosition = movement.endPosition;
+}, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+handler.setInputAction(function(position) {
+    flags.looking = false;
+}, Cesium.ScreenSpaceEventType.LEFT_UP);
+
+function getFlagForKeyCode(keyCode) {
+    switch (keyCode) {
+    case 'W'.charCodeAt(0):
+        return 'moveForward';
+    case 'S'.charCodeAt(0):
+        return 'moveBackward';
+    case 'Q'.charCodeAt(0):
+        return 'moveUp';
+    case 'E'.charCodeAt(0):
+        return 'moveDown';
+    case 'D'.charCodeAt(0):
+        return 'moveRight';
+    case 'A'.charCodeAt(0):
+        return 'moveLeft';
+    default:
+        return undefined;
+    }
+}
+
+document.addEventListener('keydown', function(e) {
+    var flagName = getFlagForKeyCode(e.keyCode);
+    if (typeof flagName !== 'undefined') {
+        flags[flagName] = true;
+    }
+}, false);
+
+document.addEventListener('keyup', function(e) {
+    var flagName = getFlagForKeyCode(e.keyCode);
+    if (typeof flagName !== 'undefined') {
+        flags[flagName] = false;
+    }
+}, false);
+
+viewer.clock.onTick.addEventListener(function(clock) {
+    var camera = viewer.camera;
+
+    if (flags.looking) {
+        var width = canvas.clientWidth;
+        var height = canvas.clientHeight;
+
+        // Coordinate (0.0, 0.0) will be where the mouse was clicked.
+        var x = (mousePosition.x - startMousePosition.x) / width;
+        var y = -(mousePosition.y - startMousePosition.y) / height;
+
+        var lookFactor = 0.05;
+        camera.lookRight(x * lookFactor);
+        camera.lookUp(y * lookFactor);
+    }
+
+    // Change movement speed based on the distance of the camera to the surface of the ellipsoid.
+    var cameraHeight = ellipsoid.cartesianToCartographic(camera.position).height;
+    var moveRate = cameraHeight / 10.0;
+
+    if (flags.moveForward) {
+        camera.moveForward(moveRate);
+    }
+    if (flags.moveBackward) {
+        camera.moveBackward(moveRate);
+    }
+    if (flags.moveUp) {
+        camera.moveUp(moveRate);
+    }
+    if (flags.moveDown) {
+        camera.moveDown(moveRate);
+    }
+    if (flags.moveLeft) {
+        camera.moveLeft(moveRate);
+    }
+    if (flags.moveRight) {
+        camera.moveRight(moveRate);
+    }
+});
+
+    var ISS;
+    
+    function setUpData() {
+    if (ISS) { viewer.entities.remove(ISS); }
+    ISS = viewer.entities.add({
+        name : 'ISS',
+        position: Cesium.Cartesian3.fromDegrees(longitude, latitude, 200000.0),
+        cylinder : {
+            length : 2000000.0,
+            topRadius : 400000.0,
+            bottomRadius : 200000.0,
+            material : Cesium.Color.YELLOW
+        }
+        });
+
+    ISS.description = "<img style='float:left; margin: 0 1em 1em 0;' width='50%' src='https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/International_Space_Station_after_undocking_of_STS-132.jpg/450px-International_Space_Station_after_undocking_of_STS-132.jpg' /><br><br>The <b>International Space Station (ISS)</b> is a space station, or a habitable artificial satellite, in low Earth orbit. Its first component launched into orbit in 1998, and the ISS is now the largest artificial body in orbit and can often be seen with the naked eye from Earth. The ISS consists of pressurised modules, external trusses, solar arrays, and other components. ISS components have been launched by Russian Proton and Soyuz rockets, SpaceX Falcon 9 launch vehicles, and American Space Shuttles. <br> The ISS serves as a microgravity and space environment research laboratory in which crew members conduct experiments in biology, human biology, physics, astronomy, meteorology, and other fields. The station is suited for the testing of spacecraft systems and equipment required for missions to the Moon and Mars. The ISS maintains an orbit with an altitude of between 330 and 435 km (205 and 270 mi) by means of reboost manoeuvres using the engines of the Zvezda module or visiting spacecraft. It completes 15.54 orbits per day.";
+    
+    function Images(primitive, scene) {
+        primitive.appearance.material = new Cesium.Material({
+            fabric : {
+                type : 'Image',
+                uniforms : {
+                    image : 'https://upload.wikimedia.org/wikipedia/commons/0/0e/Bottlenose_dolphin_with_young.JPG'
+                }
+            }
+         });
+    }
+
+    var coord;
+    var xoffset, yoffset;
+    var wiki = [
+                ['United States', 'https://upload.wikimedia.org/wikipedia/commons/9/91/Michael_Phelps_with_President_Bush_-_20080811.jpeg', "<b>The United States of America</b> (commonly referred to as the United States, U.S., USA, or America), is a federal republic composed of 50 states, a federal district of Washington, D.C., five major territories, and various possessions. The 48 contiguous states and Washington, D.C., are in central North America between Canada and Mexico. The state of Alaska is in the northwestern part of North America and the state of Hawaii is an archipelago in the mid-Pacific. The territories are scattered about the Pacific Ocean and the Caribbean Sea. At 3.8 million square miles (9.9 million km2) and with over 320 million people, the country is the world's third largest by total area (fourth largest by land area) and the third most populous. It is one of the world's most ethnically diverse and multicultural nations, the product of large-scale immigration from many countries. The geography and climate of the United States are also extremely diverse, and the country is home to a wide variety of wildlife. Paleo-Indians migrated from Eurasia to what is now the U.S. mainland at least 15,000 years ago, with European colonization beginning in the 16th century. The United States emerged from 13 British colonies along the East Coast. Numerous disputes between Great Britain and the colonies led to the American Revolution, which began in 1775. On July 4, 1776, as the colonies were fighting Great Britain in the American Revolutionary War, delegates from the 13 colonies unanimously adopted the Declaration of Independence. The war ended in 1783 with recognition of the independence of the United States by the Kingdom of Great Britain, and was the first successful war of independence against a European colonial empire. The country's constitution was adopted on September 17, 1787, and ratified by the states in 1788. The first ten amendments, collectively named the Bill of Rights, were ratified in 1791 and designed to guarantee many fundamental civil liberties. Driven by the doctrine of Manifest Destiny, the United States embarked on a vigorous expansion across North America throughout the 19th century. This involved displacing American Indian tribes, acquiring new territories, and gradually admitting new states and by 1848 the nation spanned the continent. During the second half of the 19th century, the American Civil War ended legal slavery in the country. By the end of that century, the United States extended into the Pacific Ocean, and its economy, driven in large part by the Industrial Revolution, began to soar. The Spanish–American War and World War I confirmed the country's status as a global military power. The United States emerged from World War II as a global superpower, the first country to develop nuclear weapons, the only country to use them in warfare, and a permanent member of the United Nations Security Council. The end of the Cold War and the dissolution of the Soviet Union in 1991 left the United States as the world's sole superpower. The United States is a developed country and has the world's largest national economy by nominal and real GDP, benefiting from an abundance of natural resources and high worker productivity. While the U.S. economy is considered post-industrial, the country continues to be one of the world's largest manufacturers. Accounting for 34% of global military spending and 23% of world GDP, it is the world's foremost military and economic power, a prominent political and cultural force, and a leader in scientific research and technological innovations."]
+               ];
+
+    i = 0;
+    // West, south, east, north
+    coord = [-100.0, 30.0, -90.0, 40.0];
+    coord = [-100.0, 30.0, -90.0, 40.0];
+    coord = [longitude - 8, latitude -6, longitude + 8, latitude + 6];
+    xoffset = 13;
+    yoffset = 10;
+    //xoffset = 0;
+    //yoffset = 0;
+    
+    var image1 = viewer.entities.add({
+        name : wiki[i][0],
+        rectangle: {
+            coordinates: Cesium.Rectangle.fromDegrees(coord[0] + xoffset,
+                                                      coord[1] - yoffset,
+                                                      coord[2] + xoffset,
+                                                      coord[3] - yoffset),
+            material : new Cesium.ImageMaterialProperty({
+                image : wiki[i][1]
+            }),
+            rotation : Cesium.Math.toRadians(45),
+            extrudedHeight : 300000.0,
+            height : 400000.0,
+        },
+        description: "<img style='float:left; margin: 0 1em 1em 0;' width='50% src='" + wiki[i][1] + "' />" + wiki[i][2]
+    });
+    //viewer.entities.remove(image1);
+    }
+
+
+    function reset() {
+//        viewer.entities.removeAll();
+        setUpData();
+        handler = handler && handler.destroy();
+        
+        MouseOver();
+        MouseClick();
+        
+        var loc = "http://localhost/music/" + longitude + "/" + latitude;
+        document.getElementById('music').src = loc;
+    };
+    reset();
+</script>
+</html>

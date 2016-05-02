@@ -5,6 +5,7 @@ from flask import (Flask,
 import time
 import wikipedia
 import random
+import ISS
 
 app = Flask(__name__)
 
@@ -15,6 +16,10 @@ default_query = "dolphins"
 
 @app.route('/music')
 def music():
+    return play(None, None)
+
+@app.route('/music/<longitude>/<latitude>')
+def play(longitude, latitude):
     audio_extension = "webm"
 
     def stream():
@@ -33,7 +38,6 @@ def music():
             if song == default_song:
                 time.sleep(100)
                 
-
     return Response(stream_with_context(stream()),
                     mimetype='audio/' + audio_extension)
 
@@ -43,9 +47,8 @@ def index():
 
 @app.route('/info')
 def info():
-    query = "Philippines"
-    
-    query = None
+    query = "USA"
+    #query = None
     query = query if query is not None else default_query
 
     print("Searching Wikipedia")
@@ -72,8 +75,10 @@ def info():
     html = html.format(wiki.title, images_html, wiki.summary)
     return html
 
-#@app.route('/get_isis')
-#def 
+@app.route('/get_iss')
+def get_iss():
+    coord = ISS.coord()
+    return "{},{}".format(*coord)
 
 if __name__ == '__main__':
     app.run(port=80, debug=True)
